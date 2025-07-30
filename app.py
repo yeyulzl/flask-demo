@@ -16,4 +16,6 @@ def add():
     return jsonify({"sum": result})
 
 if __name__ == '__main__':
-    app.run(debug=True)   # 默认 http://127.0.0.1:5000
+    # 生产环境端口由环境变量 PORT 决定，缺省用 5000
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
