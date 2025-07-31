@@ -8,8 +8,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inspiration.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-@app.before_first_request
-def create_tables():
+with app.app_context():
     db.create_all()
 
 # 列表（支持分页 / 过滤）
@@ -72,6 +71,7 @@ def add():
     return jsonify({"sum": result})
 
 if __name__ == '__main__':
-    # 生产环境端口由环境变量 PORT 决定，缺省用 5000
+    with app.app_context():
+        db.create_all()
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
