@@ -6,8 +6,8 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///inspiration.db')
 db.init_app(app)
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+   # db.create_all()
 
 # 小程序端把 code 发来，后端换 session_key → openid
 @app.route('/login', methods=['POST'])
@@ -17,10 +17,12 @@ def login():
         return jsonify({'errmsg': '缺少 code'}), 400
 
     # 使用云托管环境变量注入的 appid 和 secret
-    appid  = os.environ['APPID']
+    appid = os.environ['APPID']
     secret = os.environ['APPSECRET']
-  url = (f'https://api.weixin.qq.com/sns/jscode2session?'
-       f'appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code')
+    
+    # 修正1: 修复缩进问题并优化URL格式
+    url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
+    
     wx_resp = requests.get(url, timeout=5).json()
     if 'openid' not in wx_resp:
         return jsonify({'errmsg': wx_resp.get('errmsg', 'wx error')}), 400
@@ -36,6 +38,10 @@ def login():
 # 统一把 openid 放到 g.user_id
 @app.before_request
 def set_user():
+    # 修正2: 排除/login路由，否则/login请求会被拦截
+    if request.path == '/login':
+        return
+    
     g.user_id = request.headers.get('X-User-Id')
     if not g.user_id:
         return jsonify({'errmsg': '缺少用户标识'}), 401
@@ -50,7 +56,7 @@ def list_inspirations():
              .paginate(page=page, per_page=size, error_out=False)
     return jsonify({'items': [i.to_dict() for i in query.items], 'total': query.total})
 
-#新增记录
+# 新增记录
 @app.route('/inspirations', methods=['POST'])
 def add_inspiration():
     data = request.get_json()
@@ -67,7 +73,12 @@ def add_inspiration():
 # 删除
 @app.route('/inspirations/<int:iid>', methods=['DELETE'])
 def delete_inspiration(iid):
-    Inspiration.query.filter_by(id=iid, user_id=g.user_id).delete()
+    # 修正3: 使用更安全的删除方式
+    insp = Inspiration.query.filter_by(id=iid, user_id=g.user_id).first()
+    if not insp:
+        return jsonify({'errmsg': '记录不存在'}), 404
+    
+    db.session.delete(insp)
     db.session.commit()
     return '', 204
 
@@ -93,6 +104,7 @@ def add():
     data = request.get_json()
     result = data['a'] + data['b']
     return jsonify({"sum": result})
+
 
 if __name__ == '__main__':
     with app.app_context():
