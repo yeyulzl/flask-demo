@@ -1,35 +1,60 @@
-import os
-
-from flask import Flask, request, jsonify
-from models import db, Inspiration
+import os, requests
+from flask import Flask, request, jsonify, g
+from models import db, User, Inspiration
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inspiration.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///inspiration.db')
 db.init_app(app)
 
 with app.app_context():
     db.create_all()
 
-# 列表（支持分页 / 过滤）
+# 小程序端把 code 发来，后端换 session_key → openid
+@app.route('/login', methods=['POST'])
+def login():
+    code = request.json.get('code')
+    if not code:
+        return jsonify({'errmsg': '缺少 code'}), 400
+
+    # 使用云托管环境变量注入的 appid 和 secret
+    appid  = os.environ['APPID']
+    secret = os.environ['APPSECRET']
+   url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
+    wx_resp = requests.get(url, timeout=5).json()
+    if 'openid' not in wx_resp:
+        return jsonify({'errmsg': wx_resp.get('errmsg', 'wx error')}), 400
+
+    openid = wx_resp['openid']
+    user = User.query.get(openid)
+    if not user:
+        user = User(id=openid, nickname=request.json.get('nickname', ''))
+        db.session.add(user)
+        db.session.commit()
+    return jsonify({'openid': openid})
+
+# 统一把 openid 放到 g.user_id
+@app.before_request
+def set_user():
+    g.user_id = request.headers.get('X-User-Id')
+    if not g.user_id:
+        return jsonify({'errmsg': '缺少用户标识'}), 401
+
+# 所有 CRUD 都加 user 过滤
 @app.route('/inspirations')
 def list_inspirations():
-    page  = request.args.get('page', 1, type=int)
-    size  = request.args.get('size', 10, type=int)
-    archived = request.args.get('archived', 'false') == 'true'
-    query = Inspiration.query.filter_by(archived=archived)\
+    page = request.args.get('page', 1, type=int)
+    size = request.args.get('size', 10, type=int)
+    query = Inspiration.query.filter_by(user_id=g.user_id)\
              .order_by(Inspiration.created_at.desc())\
              .paginate(page=page, per_page=size, error_out=False)
-    return jsonify({
-        'items': [i.to_dict() for i in query.items],
-        'total': query.total
-    })
+    return jsonify({'items': [i.to_dict() for i in query.items], 'total': query.total})
 
-# 新建
+#新增记录
 @app.route('/inspirations', methods=['POST'])
 def add_inspiration():
     data = request.get_json()
     insp = Inspiration(
+        user_id=g.user_id,
         title=data['title'],
         content=data.get('content', ''),
         priority=data.get('priority', 3)
@@ -38,24 +63,22 @@ def add_inspiration():
     db.session.commit()
     return jsonify(insp.to_dict()), 201
 
-# 更新
-@app.route('/inspirations/<int:iid>', methods=['PUT'])
-def update_inspiration(iid):
-    insp = Inspiration.query.get_or_404(iid)
-    data = request.get_json()
-    insp.title    = data.get('title', insp.title)
-    insp.content  = data.get('content', insp.content)
-    insp.priority = data.get('priority', insp.priority)
-    insp.archived = data.get('archived', insp.archived)
-    db.session.commit()
-    return jsonify(insp.to_dict())
-
 # 删除
 @app.route('/inspirations/<int:iid>', methods=['DELETE'])
 def delete_inspiration(iid):
-    Inspiration.query.filter_by(id=iid).delete()
+    Inspiration.query.filter_by(id=iid, user_id=g.user_id).delete()
     db.session.commit()
     return '', 204
+
+@app.route('/inspirations/<int:iid>', methods=['PUT'])
+def update_inspiration(iid):
+    insp = Inspiration.query.filter_by(id=iid, user_id=g.user_id).first_or_404()
+    data = request.get_json()
+    for k in ['title', 'content', 'priority', 'archived']:
+        if k in data:
+            setattr(insp, k, data[k])
+    db.session.commit()
+    return jsonify(insp.to_dict())
 
 # GET /hello?name=Tom
 @app.route('/hello', methods=['GET'])
