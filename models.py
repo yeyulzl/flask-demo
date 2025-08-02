@@ -3,10 +3,15 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+class User(db.Model):
+    id       = db.Column(db.String(64), primary_key=True)  # openid
+    nickname = db.Column(db.String(64))
+    created  = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Inspiration(db.Model):
     __tablename__ = 'inspirations'
-
     id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.String(64), db.ForeignKey('user.id'), nullable=False)
     title      = db.Column(db.String(100), nullable=False)
     content    = db.Column(db.Text, default='')
     priority   = db.Column(db.Integer, default=3)
