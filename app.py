@@ -19,7 +19,8 @@ def login():
     # 使用云托管环境变量注入的 appid 和 secret
     appid  = os.environ['APPID']
     secret = os.environ['APPSECRET']
-   url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
+  url = (f'https://api.weixin.qq.com/sns/jscode2session?'
+       f'appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code')
     wx_resp = requests.get(url, timeout=5).json()
     if 'openid' not in wx_resp:
         return jsonify({'errmsg': wx_resp.get('errmsg', 'wx error')}), 400
