@@ -12,7 +12,21 @@ db.init_app(app)
 # db.create_all()
 
 # 小程序端把 code 发来，后端换 session_key → openid
+@app.route('/auth/code2session', methods=['POST'])
+def code2session():
+    print('Headers:', request.headers)
+    print('Body:', request.get_data(as_text=True))
+    print('JSON:', request.get_json(silent=True))
 
+    code = (request.json or {}).get('code') \
+        or request.form.get('code') \
+        or request.args.get('code')
+
+    if not code:
+        return jsonify({"errmsg": "缺少用户标识"}), 401
+
+    # TODO: 用 code 调微信接口，拿到真实的 openid/session_key
+    return jsonify({"openid": "fake_openid", "session_key": "fake_key"})
 
 @app.route('/login', methods=['POST'])
 def login():
