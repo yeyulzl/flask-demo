@@ -22,6 +22,8 @@ def code2session():
         or request.form.get('code') \
         or request.args.get('code')
 
+print('Headers:', request.headers)
+print('Body:', request.get_data(as_text=True))
     if not code:
         return jsonify({"errmsg": "缺少用户标识"}), 401
 
