@@ -3,6 +3,7 @@ import requests
 from flask import Flask, request, jsonify, g
 from models import db, User, Inspiration
 
+print("Flask starting...")
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///inspiration.db')
@@ -11,23 +12,27 @@ db.init_app(app)
 # with app.app_context():
 # db.create_all()
 
-# 小程序端把 code 发来，后端换 session_key → openid
 @app.route('/auth/code2session', methods=['POST'])
 def code2session():
-    print('Headers:', request.headers)
-    print('Body:', request.get_data(as_text=True))
-    print('JSON:', request.get_json(silent=True))
+    # 1) 强制打印原始字节，确保一定执行
+    print('=== 进入 code2session ===')
+    print('Content-Type:', request.headers.get('Content-Type'))
+    body_raw = request.get_data(as_text=True)
+    print('Raw Body:', repr(body_raw))
 
-    code = (request.json or {}).get('code') \
-        or request.form.get('code') \
-        or request.args.get('code')
+    # 2) 再打印解析结果
+    json_data = request.get_json(silent=True)
+    print('Parsed JSON:', json_data)
 
-print('Headers:', request.headers)
-print('Body:', request.get_data(as_text=True))
+    # 3) 取 code
+    code = (json_data or {}).get('code') \
+           or request.form.get('code') \
+           or request.args.get('code')
+    print('code =', repr(code))
+
     if not code:
         return jsonify({"errmsg": "缺少用户标识"}), 401
 
-    # TODO: 用 code 调微信接口，拿到真实的 openid/session_key
     return jsonify({"openid": "fake_openid", "session_key": "fake_key"})
 
 @app.route('/login', methods=['POST'])
@@ -36,11 +41,10 @@ def login():
     if not code:
         return jsonify({'errmsg': '缺少 code'}), 400
 
-    # 使用云托管环境变量注入的 appid 和 secret
-    appid = os.environ['APPID']
-    secret = os.environ['APPSECRET']
-
-    # 修正1: 修复缩进问题并优化URL格式
+    # appid = os.environ['WX_APPID']
+   # secret = os.environ['WX_SECRET']
+    appid=wx9b655bf317124899
+    secret=aaee6fb52bd17331d373008c31ee90dc
     url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
 
     wx_resp = requests.get(url, timeout=5).json()
@@ -54,7 +58,6 @@ def login():
         db.session.add(user)
         db.session.commit()
     return jsonify({'openid': openid})
-
 # 统一把 openid 放到 g.user_id
 
 
@@ -146,3 +149,4 @@ if __name__ == '__main__':
         db.create_all()
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+print(app.url_map)
