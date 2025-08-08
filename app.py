@@ -41,13 +41,12 @@ def login():
     if not code:
         return jsonify({'errmsg': '缺少 code'}), 400
 
-    # appid = os.environ['WX_APPID']
-   # secret = os.environ['WX_SECRET']
-    appid='wx9b655bf317124899'
-    secret='aaee6fb52bd17331d373008c31ee90dc'
+    appid = os.environ['WX_APPID']
+    secret = os.environ['WX_SECRET']
     url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
 
-    wx_resp = requests.get(url, timeout=5).json()
+    wx_resp = requests.get(url, timeout=5,verify=False).json()
+    print("verify=False 已生效")
     if 'openid' not in wx_resp:
         return jsonify({'errmsg': wx_resp.get('errmsg', 'wx error')}), 400
 
