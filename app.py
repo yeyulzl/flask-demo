@@ -43,8 +43,8 @@ def login():
 
     # appid = os.environ['WX_APPID']
    # secret = os.environ['WX_SECRET']
-    appid=wx9b655bf317124899
-    secret=aaee6fb52bd17331d373008c31ee90dc
+    appid='wx9b655bf317124899'
+    secret='aaee6fb52bd17331d373008c31ee90dc'
     url = f'https://api.weixin.qq.com/sns/jscode2session?appid={appid}&secret={secret}&js_code={code}&grant_type=authorization_code'
 
     wx_resp = requests.get(url, timeout=5).json()
