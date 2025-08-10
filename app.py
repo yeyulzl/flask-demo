@@ -116,7 +116,7 @@ def delete_inspiration(iid):
     return '', 204
 
 
-@app.route('/inspirations/<int:iid>', methods=['PUT'])
+@app.route('/inspirations/<int:iid>', methods=['PATCH'])
 def update_inspiration(iid):
     insp = Inspiration.query.filter_by(
         id=iid, user_id=g.user_id).first_or_404()
